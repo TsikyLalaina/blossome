@@ -1,8 +1,10 @@
 import type { NextConfig } from "next";
 
+const isDev = process.env.NODE_ENV !== "production";
+
 const cspDirectives = [
   "default-src 'self'",
-  "script-src 'self' 'unsafe-inline' https://www.googletagmanager.com https://va.vercel-scripts.com",
+  `script-src 'self' 'unsafe-inline' ${isDev ? "'unsafe-eval'" : ""} https://www.googletagmanager.com https://va.vercel-scripts.com`,
   "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
   "font-src 'self' https://fonts.gstatic.com",
   "img-src 'self' data: blob: https://*.supabase.co https://maps.googleapis.com",
@@ -69,12 +71,12 @@ const nextConfig: NextConfig = {
   typescript: {
     ignoreBuildErrors: false,
   },
-  eslint: {
-    ignoreDuringBuilds: false,
-  },
 
   /* ── Typed routes (stable) ────────────────────────────── */
-  typedRoutes: true,
+  typedRoutes: false,
+
+  /* ── Cache components ────────────────────────────────── */
+  cacheComponents: true,
 
   /* ── Experimental ─────────────────────────────────────── */
   experimental: {

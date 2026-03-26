@@ -20,12 +20,15 @@ export type ServiceCategory =
 export interface Service {
   id: string;
   name: string;
+  slug: string;
   description: string | null;
   category: ServiceCategory;
   duration_minutes: number;
-  price: number;
+  price_mga: number;
+  deposit_percent: number;
   image_url: string | null;
   is_active: boolean;
+  sort_order: number;
   created_at: string;
   updated_at: string;
 }
@@ -43,12 +46,13 @@ export interface Staff {
 
 export interface Booking {
   id: string;
-  client_id: string;
+  client_id?: string | null;
+  client_name?: string | null;
+  client_phone?: string;
   service_id: string;
   staff_id: string | null;
-  date: string;
-  start_time: string;
-  end_time: string;
+  slot_start: string;
+  slot_end: string;
   status: BookingStatus;
   payment_method: PaymentMethod | null;
   payment_reference: string | null;
@@ -102,4 +106,12 @@ export interface Profile {
   role: "client" | "staff" | "admin";
   created_at: string;
   updated_at: string;
+}
+
+export interface GalleryItem {
+  id: string;
+  url: string;
+  category: ServiceCategory;
+  alt_text: string;
+  created_at: string;
 }
