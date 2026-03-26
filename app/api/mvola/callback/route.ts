@@ -29,11 +29,14 @@ export async function POST(req: Request) {
     }
 
     const data = parsedPayload.data;
+    console.log(`Received MVola callback for ServerCorrelationId: ${data.serverCorrelationId}, Status: ${data.transactionStatus}`);
     
-    // Verify creditParty matches our merchant number
+    // Verify creditParty matches our merchant number (normalized)
     const creditPartyMsisdn = data.creditParty?.find(p => p.key === 'msisdn')?.value;
-    if (creditPartyMsisdn !== process.env.MVOLA_PARTNER_MSISDN) {
-      console.warn(`Spoof detected: creditParty ${creditPartyMsisdn} != ${process.env.MVOLA_PARTNER_MSISDN}`);
+    const normalize = (num?: string) => num?.replace(/^(\+261|261|0)/, '') || '';
+    
+    if (normalize(creditPartyMsisdn) !== normalize(process.env.MVOLA_PARTNER_MSISDN)) {
+      console.warn(`Spoof detected or MSISDN mismatch: callback MSISDN is "${creditPartyMsisdn}", expected "${process.env.MVOLA_PARTNER_MSISDN}"`);
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 
@@ -47,6 +50,7 @@ export async function POST(req: Request) {
       .single();
 
     if (txError || !tx) {
+      console.error(`Transaction not found for serverCorrelationId: ${data.serverCorrelationId}. Error:`, txError);
       return NextResponse.json({ error: 'Not Found' }, { status: 404 });
     }
 
