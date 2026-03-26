@@ -104,6 +104,13 @@ async function handleMvolaCallback(req: Request) {
       await supabase.from('mvola_transactions').update({
         status: 'failed'
       }).eq('id', txId);
+
+      // CRITICAL: Update booking status so frontend stops polling
+      await supabase.from('bookings').update({
+        status: 'cancelled'
+      }).eq('id', bookingId);
+      
+      console.log('Database updated: status -> cancelled (payment failed)');
     }
     
     console.log(`--- MVOLA CALLBACK END (${req.method} Success) ---`);
