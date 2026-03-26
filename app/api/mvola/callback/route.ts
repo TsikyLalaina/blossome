@@ -14,10 +14,12 @@ const MvolaCallbackPayloadSchema = z.object({
   metadata: z.array(z.object({ key: z.string(), value: z.string() })).optional()
 }).passthrough();
 
-export async function POST(req: Request) {
+interface MvolaParty { key: string; value: string; }
+
+async function handleMvolaCallback(req: Request) {
   try {
     const payload = await req.json();
-    console.log('--- MVOLA CALLBACK START ---');
+    console.log(`--- MVOLA CALLBACK START (${req.method}) ---`);
     console.log('Raw Payload:', JSON.stringify(payload, null, 2));
 
     if (!process.env.MVOLA_CALLBACK_URL) {
@@ -31,7 +33,6 @@ export async function POST(req: Request) {
     }
 
     // Use a typed reference for data to satisfy linter and maintain safety
-    interface MvolaParty { key: string; value: string; }
     const data = (parsedPayload.success ? parsedPayload.data : payload) as z.infer<typeof MvolaCallbackPayloadSchema>;
     
     // Verify creditParty matches our merchant number (normalized)
@@ -41,7 +42,6 @@ export async function POST(req: Request) {
     
     if (normalize(creditPartyMsisdn) !== normalize(process.env.MVOLA_PARTNER_MSISDN)) {
       console.warn(`MSISDN mismatch: callback MSISDN is "${creditPartyMsisdn}", expected "${process.env.MVOLA_PARTNER_MSISDN}"`);
-      // In dev, we might want to continue anyway, but for security we return 403
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 
@@ -106,10 +106,18 @@ export async function POST(req: Request) {
       }).eq('id', txId);
     }
     
-    console.log('--- MVOLA CALLBACK END (Success) ---');
+    console.log(`--- MVOLA CALLBACK END (${req.method} Success) ---`);
     return NextResponse.json({ success: true }, { status: 200 });
   } catch (error) {
     console.error('Mvola Callback Error:', error);
     return NextResponse.json({ success: false }, { status: 200 });
   }
+}
+
+export async function POST(req: Request) {
+  return handleMvolaCallback(req);
+}
+
+export async function PUT(req: Request) {
+  return handleMvolaCallback(req);
 }
