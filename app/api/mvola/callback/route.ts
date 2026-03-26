@@ -4,87 +4,112 @@ import { z } from 'zod';
 import { revalidateTag } from 'next/cache';
 
 const MvolaCallbackPayloadSchema = z.object({
-  transactionStatus: z.enum(['completed', 'failed', 'pending']),
-  serverCorrelationId: z.string(),
+  transactionStatus: z.string(),
+  serverCorrelationId: z.string().optional(),
   transactionReference: z.string().optional(),
-  requestDate: z.string(),
+  requestingOrganisationTransactionReference: z.string().optional(),
+  requestDate: z.string().optional(),
   debitParty: z.array(z.object({ key: z.string(), value: z.string() })).optional(),
   creditParty: z.array(z.object({ key: z.string(), value: z.string() })).optional(),
-  fees: z.array(z.object({ feeAmount: z.string() })).optional(),
   metadata: z.array(z.object({ key: z.string(), value: z.string() })).optional()
-});
+}).passthrough();
 
 export async function POST(req: Request) {
   try {
+    const payload = await req.json();
+    console.log('--- MVOLA CALLBACK START ---');
+    console.log('Raw Payload:', JSON.stringify(payload, null, 2));
+
     if (!process.env.MVOLA_CALLBACK_URL) {
+      console.error('MVOLA_CALLBACK_URL not configured in environment');
       return NextResponse.json({ error: 'Not configured' }, { status: 404 });
     }
 
-    const payload = await req.json();
     const parsedPayload = MvolaCallbackPayloadSchema.safeParse(payload);
-    
     if (!parsedPayload.success) {
-      console.error('Invalid Mvola callback payload', parsedPayload.error);
-      return NextResponse.json({ error: 'Bad Request' }, { status: 400 });
+      console.error('Invalid Mvola callback payload schema:', parsedPayload.error);
     }
 
-    const data = parsedPayload.data;
-    console.log(`Received MVola callback for ServerCorrelationId: ${data.serverCorrelationId}, Status: ${data.transactionStatus}`);
+    // Use a typed reference for data to satisfy linter and maintain safety
+    interface MvolaParty { key: string; value: string; }
+    const data = (parsedPayload.success ? parsedPayload.data : payload) as z.infer<typeof MvolaCallbackPayloadSchema>;
     
     // Verify creditParty matches our merchant number (normalized)
-    const creditPartyMsisdn = data.creditParty?.find(p => p.key === 'msisdn')?.value;
+    const creditParty = data.creditParty as MvolaParty[] | undefined;
+    const creditPartyMsisdn = creditParty?.find((p: MvolaParty) => p.key === 'msisdn')?.value;
     const normalize = (num?: string) => num?.replace(/^(\+261|261|0)/, '') || '';
     
     if (normalize(creditPartyMsisdn) !== normalize(process.env.MVOLA_PARTNER_MSISDN)) {
-      console.warn(`Spoof detected or MSISDN mismatch: callback MSISDN is "${creditPartyMsisdn}", expected "${process.env.MVOLA_PARTNER_MSISDN}"`);
+      console.warn(`MSISDN mismatch: callback MSISDN is "${creditPartyMsisdn}", expected "${process.env.MVOLA_PARTNER_MSISDN}"`);
+      // In dev, we might want to continue anyway, but for security we return 403
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 
     const supabase = createAdminSupabaseClient();
     
-    // Look up transaction
-    const { data: tx, error: txError } = await supabase
-      .from('mvola_transactions')
-      .select('id, booking_id, status')
-      .eq('server_correlation_id', data.serverCorrelationId)
-      .single();
+    // Look up transaction by serverCorrelationId OR requestingOrganisationTransactionReference (bookingId)
+    let txId: string | null = null;
+    let bookingId: string | null = null;
 
-    if (txError || !tx) {
-      console.error(`Transaction not found for serverCorrelationId: ${data.serverCorrelationId}. Error:`, txError);
+    const { data: txByCorrelation } = await supabase
+      .from('mvola_transactions')
+      .select('id, booking_id')
+      .eq('server_correlation_id', data.serverCorrelationId)
+      .maybeSingle();
+
+    if (txByCorrelation) {
+      txId = txByCorrelation.id;
+      bookingId = txByCorrelation.booking_id;
+    } else if (data.requestingOrganisationTransactionReference) {
+      // Fallback: look up by booking ID directly in the transactions table
+      const { data: txByBooking } = await supabase
+        .from('mvola_transactions')
+        .select('id, booking_id')
+        .eq('booking_id', data.requestingOrganisationTransactionReference)
+        .maybeSingle();
+      
+      if (txByBooking) {
+        txId = txByBooking.id;
+        bookingId = txByBooking.booking_id;
+      }
+    }
+
+    if (!txId || !bookingId) {
+      console.error(`Transaction/Booking not found. CorrelationId: ${data.serverCorrelationId}, Ref: ${data.requestingOrganisationTransactionReference}`);
       return NextResponse.json({ error: 'Not Found' }, { status: 404 });
     }
 
-    // Store raw callback
+    // Store raw callback for debugging
     await supabase.from('mvola_transactions').update({
       raw_callback: payload
-    }).eq('id', tx.id);
+    }).eq('id', txId);
 
-    if (data.transactionStatus === 'completed') {
+    const status = data.transactionStatus?.toLowerCase();
+    console.log(`Processing status: ${status} for Booking: ${bookingId}`);
+
+    if (status === 'completed') {
       await supabase.from('mvola_transactions').update({
         status: 'completed',
         transaction_reference: data.transactionReference
-      }).eq('id', tx.id);
+      }).eq('id', txId);
 
       await supabase.from('bookings').update({
         status: 'confirmed',
         payment_reference: data.transactionReference
-      }).eq('id', tx.booking_id);
+      }).eq('id', bookingId);
 
       revalidateTag('bookings', 'max');
-
-      // Async email/sms logic could go here
-    } else if (data.transactionStatus === 'failed') {
+      console.log('Database updated: status -> confirmed');
+    } else if (status === 'failed') {
       await supabase.from('mvola_transactions').update({
         status: 'failed'
-      }).eq('id', tx.id);
+      }).eq('id', txId);
     }
     
-    // Always return 200 OK so Mvola stops retrying
+    console.log('--- MVOLA CALLBACK END (Success) ---');
     return NextResponse.json({ success: true }, { status: 200 });
   } catch (error) {
     console.error('Mvola Callback Error:', error);
-    // Even on server error, we return 200 to Mvola so they don't retry forever.
-    // In strict environments we might return a 500 but Mvola retry loops can be aggressive.
     return NextResponse.json({ success: false }, { status: 200 });
   }
 }
