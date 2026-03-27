@@ -60,7 +60,7 @@ export function Step4Payment({ service, selections, onUpdate, onSuccess, onBack 
         
         if (data.status === 'confirmed' || data.status === 'completed') {
           clearInterval(intervalRef.current);
-          onSuccess(data.bookingRef);
+          onSuccess(data.bookingId); // Use full UUID for the confirmation page redirect
         } else if (data.status === 'cancelled' || data.status === 'no_show') {
           clearInterval(intervalRef.current);
           setErrorMessage('La réservation a expiré ou a été annulée. Veuillez recommencer.');

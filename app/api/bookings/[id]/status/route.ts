@@ -23,7 +23,11 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
   }
 
   return NextResponse.json(
-    { status: booking.status, bookingRef: booking.id.slice(0, 8).toUpperCase() },
+    { 
+      status: booking.status, 
+      bookingId: booking.id, // Full UUID for internal use/redirects
+      bookingRef: booking.id.slice(0, 8).toUpperCase() // Short code for display
+    },
     { 
       headers: { 
         'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate' 

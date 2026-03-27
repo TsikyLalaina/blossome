@@ -205,11 +205,12 @@ export async function initiateMvolaPaymentAction(
     // Fetch the booking to verify it exists and is still pending
     const { data: booking, error: fetchError } = await supabase
       .from('bookings')
-      .select('id, status, deposit_mga')
+      .select('id, status')
       .eq('id', bookingId)
       .single()
 
     if (fetchError || !booking) {
+      console.error('Bypass Fetch Error:', fetchError)
       return { success: false, error: 'Réservation introuvable.' }
     }
 
@@ -222,7 +223,7 @@ export async function initiateMvolaPaymentAction(
       .from('bookings')
       .update({
         status: 'confirmed',
-        payment_ref: 'SANDBOX-BYPASS-' + Date.now(),
+        payment_reference: 'SANDBOX-BYPASS-' + Date.now(),
         payment_method: 'mvola'
       })
       .eq('id', bookingId)
