@@ -17,7 +17,6 @@ import {
 const navLinks = [
   { name: 'Accueil', href: '/' },
   { name: 'Services', href: '/services' },
-  { name: 'École de Beauté', href: '/ecole' },
   { name: 'Galerie', href: '/galerie' },
   { name: 'À propos', href: '/a-propos' },
   { name: 'Contact', href: '/contact' },

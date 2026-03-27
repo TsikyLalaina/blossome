@@ -57,9 +57,6 @@ export function Footer() {
               <Link href={"/services" as never} className="text-[#F5E6B3] hover:text-[#D4AF37] transition-colors text-sm">
                 Nos Services
               </Link>
-              <Link href={"/ecole" as never} className="text-[#F5E6B3] hover:text-[#D4AF37] transition-colors text-sm">
-                École de Beauté
-              </Link>
               <Link href={"/galerie" as never} className="text-[#F5E6B3] hover:text-[#D4AF37] transition-colors text-sm">
                 Galerie
               </Link>
