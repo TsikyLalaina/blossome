@@ -7,7 +7,13 @@ import type { Booking, Service } from '@/lib/types'; // Assuming types defined i
 const resend = new Resend(process.env.RESEND_API_KEY || 're_mock_key');
 const TIMEZONE = 'Africa/Nairobi';
 
-export async function sendBookingConfirmationEmail(booking: Booking & { client_email?: string }, service: Service) {
+export async function sendBookingConfirmationEmail(
+  booking: Booking & { 
+    client_email?: string;
+    availability_slots?: { slot_start: string; slot_end: string };
+  }, 
+  service: Service
+) {
   // We only send if there is an email linked to the profile or booking
   // Currently, the prompt doesn't specify an email field in Booking, 
   // so we might need to assume we pass a user email directly, or it's fetched.
@@ -22,9 +28,14 @@ export async function sendBookingConfirmationEmail(booking: Booking & { client_e
   // The prompt says "subject: Confirmation RDV Blossome — [service.name] le [date]"
   
   try {
-    const formattedDate = formatInTimeZone(booking.slot_start, TIMEZONE, 'EEEE d MMMM yyyy', { locale: fr });
-    const formattedStart = formatInTimeZone(booking.slot_start, TIMEZONE, 'HH:mm');
-    const formattedEnd = formatInTimeZone(booking.slot_end, TIMEZONE, 'HH:mm');
+    if (!booking.availability_slots) {
+      throw new Error("Availability slots missing from booking object");
+    }
+
+    const { slot_start, slot_end } = booking.availability_slots;
+    const formattedDate = formatInTimeZone(slot_start, TIMEZONE, 'EEEE d MMMM yyyy', { locale: fr });
+    const formattedStart = formatInTimeZone(slot_start, TIMEZONE, 'HH:mm');
+    const formattedEnd = formatInTimeZone(slot_end, TIMEZONE, 'HH:mm');
 
     // Fetch the extended client_email property via string literal
     const clientEmail = booking['client_email'];

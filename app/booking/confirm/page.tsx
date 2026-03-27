@@ -35,7 +35,8 @@ async function ConfirmContent({ searchParams }: ConfirmPageProps) {
     .from('bookings')
     .select(`
       *,
-      services (*)
+      services (*),
+      availability_slots (*)
     `)
     .eq('id', bookingRef)
     .single();

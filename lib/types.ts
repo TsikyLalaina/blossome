@@ -51,8 +51,7 @@ export interface Booking {
   client_phone?: string;
   service_id: string;
   staff_id: string | null;
-  slot_start: string;
-  slot_end: string;
+  slot_id: string; // References availability_slots(id)
   status: BookingStatus;
   payment_method: PaymentMethod | null;
   payment_reference: string | null;
@@ -64,10 +63,9 @@ export interface Booking {
 export interface AvailabilitySlot {
   id: string;
   staff_id: string;
-  day_of_week: number; // 0 = Sunday … 6 = Saturday
-  start_time: string;
-  end_time: string;
-  is_available: boolean;
+  slot_start: string; // ISO date-time string
+  slot_end: string;   // ISO date-time string
+  is_blocked: boolean;
   created_at: string;
 }
 

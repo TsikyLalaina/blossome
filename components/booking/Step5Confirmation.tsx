@@ -9,9 +9,16 @@ import type { Service, Booking } from '@/lib/types';
 import { formatInTimeZone } from 'date-fns-tz';
 import { fr } from 'date-fns/locale';
 
+interface BookingWithRelations extends Booking {
+  availability_slots?: {
+    slot_start: string;
+    slot_end: string;
+  };
+}
+
 interface Step5Props {
   bookingId?: string; // Standard short booking REF (BLS-[8CHARS])
-  booking?: Booking; // If passed from the server in /booking/confirm?id=
+  booking?: BookingWithRelations; // If passed from the server in /booking/confirm?id=
   service?: Service; 
 }
 
@@ -29,11 +36,11 @@ export function Step5Confirmation({ bookingId = 'NON-RECONNU', booking, service 
   const location = '12 Rue de l\'Institut, Ankadivato Antananarivo';
   
   // Format for Google Calendar (YYYYMMDDTHHmmssZ)
-  const gcalHref = booking 
-    ? `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${encodeURIComponent(title)}&dates=${formatInTimeZone(booking.slot_start, 'UTC', "yyyyMMdd'T'HHmmss'Z'")}/${formatInTimeZone(booking.slot_end, 'UTC', "yyyyMMdd'T'HHmmss'Z'")}&details=${encodeURIComponent('Votre RDV chez Blossome Institut de Beauté')}&location=${encodeURIComponent(location)}`
+  const gcalHref = booking && booking.availability_slots
+    ? `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${encodeURIComponent(title)}&dates=${formatInTimeZone(booking.availability_slots.slot_start, 'UTC', "yyyyMMdd'T'HHmmss'Z'")}/${formatInTimeZone(booking.availability_slots.slot_end, 'UTC', "yyyyMMdd'T'HHmmss'Z'")}&details=${encodeURIComponent('Votre RDV chez Blossome Institut de Beauté')}&location=${encodeURIComponent(location)}`
     : '#';
 
-  const waText = encodeURIComponent(`Bonjour ! J'ai bien réservé mon soin "${service?.name}" pour le ${booking ? formatInTimeZone(booking.slot_start, TIMEZONE, 'dd/MM/yyyy', { locale: fr }) : ''}. Ma référence est BLS-${shortRef}. À très vite !`);
+  const waText = encodeURIComponent(`Bonjour ! J'ai bien réservé mon soin "${service?.name}" pour le ${booking?.availability_slots ? formatInTimeZone(booking.availability_slots.slot_start, TIMEZONE, 'dd/MM/yyyy', { locale: fr }) : ''}. Ma référence est BLS-${shortRef}. À très vite !`);
   const waHref = `https://wa.me/?text=${waText}`;
 
   if (!mounted) return null; // Avoid hydration mismatch on formatting
@@ -68,7 +75,7 @@ export function Step5Confirmation({ bookingId = 'NON-RECONNU', booking, service 
           </p>
         </div>
 
-        {booking && service && (
+        {booking && service && booking.availability_slots && (
           <div className="pt-4 border-t border-blossome-taupe/30 text-left space-y-3">
             <h3 className="font-semibold text-blossome-brown">Récapitulatif</h3>
             <div>
@@ -78,7 +85,7 @@ export function Step5Confirmation({ bookingId = 'NON-RECONNU', booking, service 
             <div>
               <p className="text-sm text-blossome-mid">Date et Heure</p>
               <p className="font-medium text-blossome-brown">
-                {formatInTimeZone(booking.slot_start, TIMEZONE, 'EEEE d MMMM yyyy', { locale: fr })} de {formatInTimeZone(booking.slot_start, TIMEZONE, 'HH:mm')} à {formatInTimeZone(booking.slot_end, TIMEZONE, 'HH:mm')}
+                {formatInTimeZone(booking.availability_slots.slot_start, TIMEZONE, 'EEEE d MMMM yyyy', { locale: fr })} de {formatInTimeZone(booking.availability_slots.slot_start, TIMEZONE, 'HH:mm')} à {formatInTimeZone(booking.availability_slots.slot_end, TIMEZONE, 'HH:mm')}
               </p>
             </div>
             <div>
