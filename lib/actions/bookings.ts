@@ -195,6 +195,50 @@ export async function initiateMvolaPaymentAction(
   | { success: true; serverCorrelationId: string; notificationMethod: string }
   | { success: false; error: string }
 > {
+  // SANDBOX BYPASS — skips real Mvola API call and auto-confirms the booking
+  // Used during development/testing when Mvola sandbox is unstable
+  // To enable: set MVOLA_SANDBOX_BYPASS=true in .env.local
+  // NEVER set this env var in Vercel production environment
+  if (process.env.MVOLA_SANDBOX_BYPASS === 'true') {
+    const supabase = createAdminSupabaseClient()
+
+    // Fetch the booking to verify it exists and is still pending
+    const { data: booking, error: fetchError } = await supabase
+      .from('bookings')
+      .select('id, status, deposit_mga')
+      .eq('id', bookingId)
+      .single()
+
+    if (fetchError || !booking) {
+      return { success: false, error: 'Réservation introuvable.' }
+    }
+
+    if (booking.status !== 'pending_payment') {
+      return { success: false, error: 'Cette réservation ne peut plus être confirmée.' }
+    }
+
+    // Auto-confirm the booking without going through Mvola
+    const { error: updateError } = await supabase
+      .from('bookings')
+      .update({
+        status: 'confirmed',
+        payment_ref: 'SANDBOX-BYPASS-' + Date.now(),
+        payment_method: 'mvola'
+      })
+      .eq('id', bookingId)
+
+    if (updateError) {
+      return { success: false, error: 'Erreur lors de la confirmation de la réservation.' }
+    }
+
+    return {
+      success: true,
+      serverCorrelationId: 'sandbox-bypass',
+      notificationMethod: 'polling'
+    }
+  }
+  // END SANDBOX BYPASS
+
   const schema = z.object({
     bookingId: z.string().uuid(),
     clientMsisdn: z.string().regex(/^0[23]\d{8}$/, 'Numéro invalide')

@@ -1,8 +1,7 @@
 'use client';
 
-import { motion, useMotionValue, useTransform, animate } from 'framer-motion';
+import { motion } from 'framer-motion';
 import { Star } from 'lucide-react';
-import { useRef } from 'react';
 
 interface Testimonial {
   name: string;
@@ -46,8 +45,6 @@ function StarRating({ rating }: { rating: number }) {
 }
 
 export function TestimonialsSection() {
-  const constraintsRef = useRef<HTMLDivElement>(null);
-
   return (
     <section className="py-20 md:py-28 bg-blossome-cream overflow-hidden" aria-label="Témoignages clients">
       <div className="container mx-auto px-4 md:px-6">
@@ -81,30 +78,23 @@ export function TestimonialsSection() {
           ))}
         </div>
 
-        {/* Mobile: draggable carousel */}
-        <div className="md:hidden" ref={constraintsRef}>
-          <motion.div
-            className="flex gap-4 cursor-grab active:cursor-grabbing"
-            drag="x"
-            dragConstraints={constraintsRef}
-            dragElastic={0.1}
-          >
-            {testimonials.map((t) => (
-              <motion.div
-                key={t.name}
-                className="min-w-[85vw] bg-white rounded-xl p-6 shadow-sm border border-blossome-taupe/20 flex flex-col"
-              >
-                <StarRating rating={t.rating} />
-                <blockquote className="font-inter text-sm text-blossome-mid leading-relaxed mt-4 mb-6 flex-grow">
-                  &ldquo;{t.quote}&rdquo;
-                </blockquote>
-                <div>
-                  <p className="font-inter font-semibold text-blossome-dark text-sm">{t.name}</p>
-                  <p className="font-inter text-xs text-blossome-gold">{t.service}</p>
-                </div>
-              </motion.div>
-            ))}
-          </motion.div>
+        {/* Mobile: horizontal scroll */}
+        <div className="md:hidden flex gap-4 overflow-x-auto pb-4 snap-x snap-mandatory -mx-4 px-4 no-scrollbar">
+          {testimonials.map((t) => (
+            <div
+              key={t.name}
+              className="min-w-[85vw] bg-white rounded-xl p-6 shadow-sm border border-blossome-taupe/20 flex flex-col snap-center"
+            >
+              <StarRating rating={t.rating} />
+              <blockquote className="font-inter text-sm text-blossome-mid leading-relaxed mt-4 mb-6 flex-grow">
+                &ldquo;{t.quote}&rdquo;
+              </blockquote>
+              <div>
+                <p className="font-inter font-semibold text-blossome-dark text-sm">{t.name}</p>
+                <p className="font-inter text-xs text-blossome-gold">{t.service}</p>
+              </div>
+            </div>
+          ))}
         </div>
       </div>
     </section>
